@@ -11,6 +11,9 @@ class PatchProposal(BaseModel):
     proposed_snippet: str = Field(description="새로 병합/수정될 완성형 마크다운 문단")
     unified_diff: str = Field(description="사용자 리뷰용 표준 Git Unified Diff 텍스트")
     reason: str = Field(description="해당 파일 및 헤딩을 선정한 AI의 분석 근거")
+    engine: str = Field(default="ai", description="분석 엔진 ('ai' 또는 'heuristic')")
+    model_used: Optional[str] = Field(default=None, description="실제 사용된 모델 또는 엔진 명")
+    is_fallback: bool = Field(default=False, description="API 장애/오류로 인해 휴리스틱 대체 엔진으로 전환되었는지 여부")
 
 
 class PatchAcceptRequest(BaseModel):
@@ -46,6 +49,9 @@ class LLMDecision(BaseModel):
     reason: str = Field(
         description="Clear engineering explanation of why this file and heading location was chosen."
     )
+    engine: str = Field(default="ai", description="분석 엔진 ('ai' 또는 'heuristic')")
+    model_used: Optional[str] = Field(default=None, description="실제 사용된 모델 명")
+    is_fallback: bool = Field(default=False, description="휴리스틱 폴백 여부")
 
 
 class RecentDiffResponse(BaseModel):

@@ -83,6 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const proposalSection = document.getElementById("proposal-section");
   const metaTargetPath = document.getElementById("meta-target-path");
   const metaFileBadge = document.getElementById("meta-file-badge");
+  const metaEngineBadge = document.getElementById("meta-engine-badge");
   const metaTargetHeading = document.getElementById("meta-target-heading");
   const metaReason = document.getElementById("meta-reason");
   const diffFileHeader = document.getElementById("diff-file-header");
@@ -737,6 +738,25 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       metaFileBadge.textContent = "기존 파일 업데이트";
       metaFileBadge.className = "badge badge-update";
+    }
+
+    // Engine Badge configuration
+    if (metaEngineBadge) {
+      metaEngineBadge.style.display = "inline-flex";
+      if (proposal.is_fallback) {
+        metaEngineBadge.className = "badge badge-fallback";
+        metaEngineBadge.innerHTML = `⚠️ 오프라인 대체 엔진 (서버 지연 자동 전환)`;
+        metaEngineBadge.title = "Google Gemini 서버 일시 지연(503)으로 인해 오프라인 휴리스틱 엔진이 안전하게 전환되었습니다.";
+      } else if (proposal.engine === "ai") {
+        metaEngineBadge.className = "badge badge-ai";
+        const modelName = proposal.model_used || "AI 모델";
+        metaEngineBadge.innerHTML = `✨ AI 분석 완료 (${modelName})`;
+        metaEngineBadge.title = `${modelName} 모델을 통해 최적의 위치와 Unified Diff를 분석했습니다.`;
+      } else {
+        metaEngineBadge.className = "badge badge-heuristic";
+        metaEngineBadge.innerHTML = `⚡ 오프라인 휴리스틱 엔진`;
+        metaEngineBadge.title = "API 키 미설정 상태로 로컬 오프라인 휴리스틱 알고리즘으로 분석했습니다.";
+      }
     }
 
     metaReason.textContent = proposal.reason;

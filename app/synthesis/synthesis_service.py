@@ -192,9 +192,18 @@ class SynthesisService:
             else:
                 return self._heuristic_decision(content, toc_map)
         except Exception as e:
+            err_msg = str(e)
             logger.warning("LLM API call failed (%s). Falling back gracefully to heuristic decision engine.", e)
             decision = self._heuristic_decision(content, toc_map)
-            decision.reason = f"[LLM 연결 대기/휴리스틱 매칭 적용: {e.__class__.__name__}] {decision.reason}"
+            decision.engine = "heuristic"
+            decision.model_used = "오프라인 휴리스틱 엔진"
+            decision.is_fallback = True
+
+            if "503" in err_msg or "UNAVAILABLE" in err_msg:
+                reason_prefix = "[구글 서버 일시 지연(503)으로 인해 오프라인 휴리스틱 엔진이 자동 작동했습니다]\n"
+            else:
+                reason_prefix = f"[LLM 호출 예외({e.__class__.__name__})로 인해 오프라인 휴리스틱 엔진이 자동 작동했습니다]\n"
+            decision.reason = f"{reason_prefix}{decision.reason}"
             return decision
 
     async def _call_gemini_structured(self, prompt: str) -> LLMDecision:
@@ -202,16 +211,50 @@ class SynthesisService:
         from google.genai import types
 
         client = genai.Client(api_key=self.settings.GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=self.settings.GEMINI_MODEL,
-            contents=[prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=LLMDecision,
-                temperature=0.1,
-            ),
-        )
-        return LLMDecision.model_validate_json(response.text)
+        target_model = self.settings.GEMINI_MODEL
+
+        try:
+            response = client.models.generate_content(
+                model=target_model,
+                contents=[prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=LLMDecision,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                    temperature=0.1,
+                ),
+            )
+            decision = LLMDecision.model_validate_json(response.text)
+            decision.engine = "ai"
+            decision.model_used = target_model
+            decision.is_fallback = False
+            return decision
+        except Exception as e:
+            err_str = str(e)
+            if ("503" in err_str or "UNAVAILABLE" in err_str) and target_model != "gemini-3.5-flash":
+                logger.warning(
+                    "%s is experiencing high demand (503). Retrying automatically with gemini-3.5-flash...",
+                    target_model,
+                )
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-3.5-flash",
+                        contents=[prompt],
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_schema=LLMDecision,
+                            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                            temperature=0.1,
+                        ),
+                    )
+                    decision = LLMDecision.model_validate_json(response.text)
+                    decision.engine = "ai"
+                    decision.model_used = "gemini-3.5-flash (자동 대체)"
+                    decision.is_fallback = False
+                    return decision
+                except Exception as inner_e:
+                    logger.warning("Retry with gemini-3.5-flash failed: %s", inner_e)
+            raise
 
     async def _call_openai_structured(
         self,
@@ -239,6 +282,9 @@ class SynthesisService:
             )
             parsed = response.choices[0].message.parsed
             if parsed:
+                parsed.engine = "ai"
+                parsed.model_used = effective_model
+                parsed.is_fallback = False
                 return parsed
         except Exception as e:
             logger.warning("Structured parse failed, attempting JSON completion fallback: %s", e)
@@ -253,7 +299,11 @@ class SynthesisService:
             temperature=0.1,
         )
         content_str = response.choices[0].message.content or "{}"
-        return LLMDecision.model_validate_json(content_str)
+        decision = LLMDecision.model_validate_json(content_str)
+        decision.engine = "ai"
+        decision.model_used = effective_model
+        decision.is_fallback = False
+        return decision
 
     def _heuristic_decision(self, content: str, toc_map: dict[str, list[str]]) -> LLMDecision:
         """
@@ -275,7 +325,10 @@ class SynthesisService:
                 target_heading=content_heading,
                 original_snippet="",
                 proposed_snippet=content,
-                reason="Knowledge base is currently empty. Proposing initial root markdown file."
+                reason="Knowledge base is currently empty. Proposing initial root markdown file.",
+                engine="heuristic",
+                model_used="오프라인 휴리스틱 엔진",
+                is_fallback=False,
             )
 
         STOPWORDS = {
@@ -318,7 +371,10 @@ class SynthesisService:
                 target_heading=best_heading or "## Details",
                 original_snippet="",
                 proposed_snippet=content,
-                reason=f"기존 지식 베이스 문서 '{best_file}' ({best_heading})와의 높은 주제 연관성을 발견하여 해당 위치에 병합을 제안합니다."
+                reason=f"기존 지식 베이스 문서 '{best_file}' ({best_heading})와의 높은 주제 연관성을 발견하여 해당 위치에 병합을 제안합니다.",
+                engine="heuristic",
+                model_used="오프라인 휴리스틱 엔진",
+                is_fallback=False,
             )
 
         # No sufficient match found -> propose new file
@@ -329,7 +385,10 @@ class SynthesisService:
             target_heading=content_heading,
             original_snippet="",
             proposed_snippet=content,
-            reason="Content introduces a distinct topic that does not match existing headings."
+            reason="Content introduces a distinct topic that does not match existing headings.",
+            engine="heuristic",
+            model_used="오프라인 휴리스틱 엔진",
+            is_fallback=False,
         )
 
     async def propose_patch(self, content: str) -> PatchProposal:
@@ -383,7 +442,10 @@ class SynthesisService:
             original_snippet=decision.original_snippet,
             proposed_snippet=decision.proposed_snippet,
             unified_diff=unified_diff,
-            reason=decision.reason
+            reason=decision.reason,
+            engine=decision.engine,
+            model_used=decision.model_used,
+            is_fallback=decision.is_fallback,
         )
 
     def apply_patch(self, proposal: PatchProposal) -> Path:
