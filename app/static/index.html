@@ -3,252 +3,275 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DiffMind - 지능형 마크다운 지식 병합 & Git 승인 대시보드</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="/static/vendor/marked.min.js"></script>
+  <title>DiffMind - Knowledge Workspace</title>
+  <link rel="stylesheet" href="/static/style.css?v=2.5">
+  <script src="/static/vendor/marked.min.js?v=2.5"></script>
 </head>
 <body>
-  <!-- Header -->
-  <header>
-    <div class="brand">
-      <div class="brand-icon">DM</div>
-      <div>
-        <h1>DiffMind</h1>
+  <!-- macOS Frosted Glass Top Navigation Bar -->
+  <header class="macos-header">
+    <div class="header-left">
+      <!-- DiffMind Brand Logo & Title -->
+      <div class="brand-container">
+        <button class="panel-toggle-btn header-toggle-btn" id="btn-toggle-sources-header" title="소스 패널 접기/펼치기">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
+        <div class="diffmind-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect width="24" height="24" rx="6" fill="url(#dm-grad)"/>
+            <path d="M7 8h4a3 3 0 0 1 0 6H7V8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M14 8l3 4-3 4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="dm-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#38bdf8"/>
+                <stop offset="1" stop-color="#6366f1"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="title-group">
+          <span class="brand-title" id="notebook-title">DiffMind</span>
+          <span class="brand-subtitle">Knowledge Vault</span>
+        </div>
       </div>
-      <span>Knowledge Pipeline</span>
     </div>
-    <div class="header-actions">
-      <div class="project-selector-wrapper">
-        <label for="project-select" style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">프로젝트:</label>
-        <select id="project-select" class="select-project">
-          <option value="default">default</option>
-        </select>
-        <button class="btn btn-sm btn-secondary" id="btn-open-create-project" title="새 프로젝트 생성">
-          + 새 프로젝트
-        </button>
-        <button class="btn btn-sm btn-primary" id="btn-open-import" title="기존 지식 일괄 임포트">
-          📥 지식 임포트
-        </button>
-      </div>
-      <button class="btn btn-secondary" id="btn-recent-diff">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        최근 Git Diff
+
+    <!-- Right Header Tools -->
+    <div class="header-right">
+      <button class="nav-pill-btn" id="btn-open-settings" title="AI 및 API Key 설정 (.env)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        AI 설정
       </button>
-      <a href="/docs" target="_blank" class="btn btn-secondary" style="text-decoration:none;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        Swagger Docs
+      <button class="nav-pill-btn" id="btn-open-import" title="지식 일괄 임포트">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Import
+      </button>
+      <button class="nav-pill-btn" id="btn-recent-diff" title="최근 Git 커밋 변경 내역">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Diff
+      </button>
+      <a href="/docs" target="_blank" class="nav-pill-btn" title="FastAPI Swagger 문서 열기" style="text-decoration:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        API
       </a>
+      <div class="header-divider"></div>
+      <button class="panel-toggle-btn header-toggle-btn" id="btn-toggle-studio-header" title="스튜디오 패널 접기/펼치기">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      </button>
     </div>
   </header>
 
-  <!-- Application Layout (NotebookLM & GitHub-style 3-panel workspace) -->
-  <div class="app-container">
-    <!-- 1. Left Sidebar: Knowledge Sources & GitHub File Tree -->
-    <aside class="sidebar sources-sidebar" id="sources-sidebar">
-      <div class="sidebar-header">
-        <div style="display:flex; align-items:center; gap:0.5rem;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          <h2>지식 소스 (Sources)</h2>
+  <!-- 3-Panel NotebookLM Workspace Layout -->
+  <div class="notebook-container">
+    <!-- 1. Left Panel: Sources -->
+    <aside class="panel sources-panel" id="sources-panel">
+      <div class="panel-header">
+        <div class="panel-title">Sources</div>
+        <button class="panel-toggle-btn" id="btn-toggle-sources" title="패널 접기/펼치기">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
+      </div>
+
+      <div class="sources-panel-body">
+        <!-- + Add sources Main Button -->
+        <button class="btn-add-sources-pill" id="btn-add-sources">
+          <span class="plus-icon">+</span> Add sources
+        </button>
+
+        <!-- Search with filter chips -->
+        <div class="sources-search-container">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="sources-search-input" placeholder="문서 검색 (Search notes)..." autocomplete="off">
         </div>
-        <div style="display:flex; gap:0.25rem;">
-          <button class="btn-icon" id="btn-quick-new-note" title="새 지식 노트 작성">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <button class="btn-icon" id="btn-refresh-toc" title="목차 새로고침">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          </button>
+
+        <!-- Sources Content List / Tree / Empty State -->
+        <div class="sources-content-area" id="sources-content-area">
+          <div class="sources-empty-state" id="sources-empty-state">
+            <div class="empty-icon-box">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <div class="empty-title">저장된 지식 문서가 없습니다</div>
+            <div class="empty-desc">
+              상단의 '+ Add sources' 버튼 또는 'Import'를 통해 마크다운 문서를 추가하세요.
+            </div>
+            <div class="empty-drop-callout">
+              마크다운 파일을 드롭하거나 <span class="empty-link" id="link-add-sources-action">지식을 직접 추가</span>하세요
+            </div>
+          </div>
+
+          <!-- Hierarchical Tree Container (when files exist) -->
+          <div class="sources-tree-list" id="sources-tree-list" style="display:none;"></div>
         </div>
       </div>
 
-      <!-- Sources Search Filter -->
-      <div class="sources-search-box">
-        <input type="text" id="sources-search-input" placeholder="🔍 문서 또는 목차 검색...">
-      </div>
-
-      <!-- File Tree Container -->
-      <div class="toc-tree" id="toc-container">
-        <!-- Dynamically rendered hierarchical folder/file tree by app.js -->
-        <p style="padding:1rem; color:var(--text-muted); font-size:0.85rem;">문서 트리를 불러오는 중...</p>
-      </div>
-
-      <!-- Sources Sidebar Footer -->
-      <div class="sidebar-footer">
-        <div class="stats-bar">
-          <span id="stats-file-count">0 docs</span>
+      <!-- Sources Footer -->
+      <div class="sources-footer">
+        <div class="sources-stats">
+          <span id="stats-file-count">0 sources</span>
           <span class="dot">•</span>
-          <span id="stats-heading-count">0 headings</span>
+          <span id="stats-heading-count">0 sections</span>
         </div>
+        <button class="btn-icon-subtle" id="btn-refresh-sources" title="새로고침">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
       </div>
     </aside>
 
-    <!-- 2. Center: Study Reader (NotebookLM & GitHub Document Viewer) -->
-    <main class="study-reader" id="study-reader">
-      <!-- Reader Header Bar -->
-      <div class="reader-header">
-        <div class="reader-breadcrumb" id="reader-breadcrumb">
-          <span class="bc-repo">DiffMind</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-project" id="bc-project-name">default</span>
-          <span class="bc-sep">/</span>
-          <span class="bc-file" id="bc-file-name">문서를 선택하세요</span>
-        </div>
-        <div class="reader-header-actions">
-          <button class="btn btn-sm btn-secondary" id="btn-reader-toggle-mode" title="원문 텍스트 보기 전환" style="display:none;">
-            👁 원문 보기
-          </button>
-          <button class="btn btn-sm btn-secondary" id="btn-reader-copy" title="마크다운 내용 복사" style="display:none;">
-            📋 복사
-          </button>
-          
-          <!-- Outline Dropdown -->
-          <div class="outline-dropdown" id="outline-dropdown" style="display:none;">
-            <button class="btn btn-sm btn-secondary" id="btn-toggle-outline">
-              📑 목차 점프 ▾
-            </button>
-            <div class="outline-menu" id="outline-menu"></div>
+    <!-- 2. Center Panel: Blank Canvas / Knowledge Hub -->
+    <main class="panel canvas-panel" id="canvas-panel">
+      <!-- 2-A: Blank Canvas State (Clean Minimal Workspace) -->
+      <div class="canvas-blank-state" id="canvas-blank-state">
+        <div class="canvas-hero-content">
+          <div class="canvas-vault-icon">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           </div>
-
-          <button class="btn btn-sm btn-primary" id="btn-toggle-studio" title="AI 합성 스튜디오 접기/펼치기">
-            ✨ AI 스튜디오 <span id="studio-toggle-arrow">⇥</span>
-          </button>
+          <h2 class="canvas-heading">DiffMind 지식 워크스페이스</h2>
+          <p class="canvas-lead">
+            좌측 소스 목록에서 문서를 선택하면 이곳에 정리된 내용이 표시됩니다.
+          </p>
         </div>
       </div>
 
-      <!-- Reader Body -->
-      <div class="reader-body" id="reader-body">
-        <!-- Empty State (Welcome & Guidance) -->
-        <div class="reader-empty-state" id="reader-empty-state">
-          <div class="empty-icon-wrapper">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <!-- 2-B: Document Reader View (Activated when clicking a source from left) -->
+      <div class="canvas-reader-state" id="canvas-reader-state" style="display:none;">
+        <div class="reader-top-bar">
+          <button class="btn-back-canvas" id="btn-back-canvas" title="캔버스로 돌아가기">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <span>Back</span>
+          </button>
+          
+          <div class="reader-doc-breadcrumbs" id="reader-doc-breadcrumbs">
+            <span class="bc-repo">DiffMind</span>
+            <span class="bc-sep">/</span>
+            <span class="bc-file" id="bc-file-name">document.md</span>
           </div>
-          <h2>DiffMind 지식 워크스페이스</h2>
-          <p class="empty-sub">
-            정리된 마크다운 노트를 체계적으로 학습하고, 새로 공부한 지식을 AI가 최적의 위치에 지능적으로 병합합니다.
-          </p>
 
-          <div class="empty-quick-cards">
-            <div class="quick-card" id="quick-action-select-doc">
-              <div class="qc-icon">📖</div>
-              <div class="qc-title">노트 읽기 및 학습</div>
-              <div class="qc-desc">왼쪽 <strong>지식 소스(Sources)</strong> 트리에서 원하는 문서를 클릭하여 바로 학습하세요.</div>
-            </div>
-            <div class="quick-card" id="quick-action-add-note">
-              <div class="qc-icon">✨</div>
-              <div class="qc-title">새 지식 병합</div>
-              <div class="qc-desc">우측 <strong>AI 스튜디오</strong>에 학습한 내용이나 스크린샷을 넣고 Diff를 생성해 보세요.</div>
-            </div>
-            <div class="quick-card" id="quick-action-import">
-              <div class="qc-icon">📥</div>
-              <div class="qc-title">기존 지식 임포트</div>
-              <div class="qc-desc">GitHub 저장소나 로컬 옵시디언 볼트를 통째로 가져와 프로젝트에 적재하세요.</div>
+          <div class="reader-actions">
+            <button class="nav-pill-btn" id="btn-reader-toggle-mode">
+              👁 Raw
+            </button>
+            <button class="nav-pill-btn" id="btn-reader-copy">
+              📋 Copy
+            </button>
+            <div class="outline-dropdown" id="outline-dropdown">
+              <button class="nav-pill-btn" id="btn-toggle-outline">
+                📑 Outline ▾
+              </button>
+              <div class="outline-menu" id="outline-menu"></div>
             </div>
           </div>
         </div>
 
-        <!-- Active Document State -->
-        <div class="reader-doc-container" id="reader-active-content" style="display:none;">
-          <!-- Document Meta Bar -->
-          <div class="reader-meta-bar" id="reader-meta-bar">
-            <div class="reader-meta-left">
-              <span class="reader-doc-badge" id="reader-doc-badge">Markdown</span>
-              <span class="reader-doc-path" id="reader-doc-path">-</span>
-            </div>
-            <div class="reader-meta-right">
-              <span class="reader-doc-stat" id="reader-doc-size">-</span>
+        <div class="reader-content-scroll">
+          <div class="reader-glass-card">
+            <div class="reader-meta-row">
+              <span class="glass-tag" id="reader-doc-badge">Markdown</span>
+              <span class="reader-meta-text" id="reader-doc-path">-</span>
               <span class="dot">•</span>
-              <span class="reader-doc-stat" id="reader-doc-headings-count">-</span>
+              <span class="reader-meta-text" id="reader-doc-size">-</span>
+              <span class="dot">•</span>
+              <span class="reader-meta-text" id="reader-doc-headings-count">-</span>
             </div>
-          </div>
-
-          <!-- Rendered Markdown View -->
-          <article class="markdown-body" id="reader-markdown-render"></article>
-
-          <!-- Raw Markdown View (Toggled) -->
-          <div class="raw-markdown-box" id="reader-raw-box" style="display:none;">
-            <pre><code id="reader-raw-code"></code></pre>
+            <article class="markdown-body" id="reader-markdown-render"></article>
+            <div class="raw-markdown-box" id="reader-raw-box" style="display:none;">
+              <pre><code id="reader-raw-code"></code></pre>
+            </div>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- 3. Right Sidebar: Collapsible AI Synthesis & Diff Studio -->
-    <aside class="sidebar studio-sidebar" id="studio-sidebar">
-      <div class="sidebar-header studio-header">
-        <div style="display:flex; align-items:center; gap:0.5rem;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-          <h2>AI 합성 스튜디오</h2>
-        </div>
-        <button class="btn-icon" id="btn-collapse-studio" title="스튜디오 닫기">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    <!-- 3. Right Panel: Studio (Clean Placeholder) -->
+    <aside class="panel studio-panel" id="studio-panel">
+      <div class="panel-header">
+        <div class="panel-title">Studio</div>
+        <button class="panel-toggle-btn" id="btn-toggle-studio" title="패널 접기/펼치기">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
         </button>
       </div>
 
-      <div class="studio-content">
-        <!-- Input Section Card -->
-        <section class="card studio-card">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              새로 학습한 지식 입력
-            </div>
+      <div class="studio-panel-body">
+        <div class="studio-empty-state">
+          <div class="studio-wand-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           </div>
+          <div class="studio-empty-title">Studio (준비 중)</div>
+          <div class="studio-empty-desc">
+            향후 지식 분석 및 다양한 확장 기능이 이곳에 배치될 예정입니다.
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
 
-          <!-- Mode Tabs -->
-          <div class="tab-group">
-            <button class="tab-btn active" data-tab="text">직접 입력</button>
-            <button class="tab-btn" data-tab="file">.md 파일</button>
-            <button class="tab-btn" data-tab="image">스크린샷 (OCR)</button>
-          </div>
+  <!-- macOS Frosted Glass Modal: Add Sources (지식 입력 & AI Diff) -->
+  <div class="modal-overlay" id="add-sources-modal">
+    <div class="modal-card macos-glass-modal" style="max-width: 680px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <h3>지식 소스 추가 및 AI Diff 제안</h3>
+          <span class="ai-status-pill" id="source-modal-ai-pill" title="클릭하여 API 키 설정 열기">
+            <span class="status-dot" id="source-modal-status-dot"></span>
+            <span id="source-modal-ai-name">Gemini 3.8 Flash</span>
+            <span style="font-size:0.7rem; opacity:0.8;">⚙️</span>
+          </span>
+        </div>
+        <button class="btn-icon" id="btn-close-sources-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="tab-group" style="margin-bottom:1rem;">
+          <button class="tab-btn active" data-tab="text">직접 텍스트 작성</button>
+          <button class="tab-btn" data-tab="file">.md 파일 업로드</button>
+          <button class="tab-btn" data-tab="image">스크린샷 (OCR)</button>
+        </div>
 
-          <!-- Tab 1: Direct Text Input -->
-          <div class="tab-content active" id="tab-text">
-            <textarea id="input-text" placeholder="새로 학습한 마크다운 지식 내용을 작성하세요. (예: ## cgroups v2 메모리 QoS 정책...)"></textarea>
-          </div>
+        <!-- Tab 1: Text Input -->
+        <div class="tab-content active" id="tab-text">
+          <textarea id="input-text" placeholder="새로 학습한 마크다운 지식 내용을 작성하세요. (예: ## cgroups v2 메모리 QoS 정책...)"></textarea>
+        </div>
 
-          <!-- Tab 2: Markdown File Upload -->
-          <div class="tab-content" id="tab-file">
-            <input type="file" id="file-input" accept=".md,.markdown,.txt" style="display:none;">
-            <div class="dropzone" id="file-dropzone">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <p>마크다운 파일을 드래그하거나 클릭</p>
-            </div>
-            <div class="file-preview" id="file-preview-name"></div>
+        <!-- Tab 2: File Upload -->
+        <div class="tab-content" id="tab-file">
+          <input type="file" id="file-input" accept=".md,.markdown,.txt" style="display:none;">
+          <div class="dropzone" id="file-dropzone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>마크다운(.md) 파일을 이곳에 드래그하거나 클릭하여 선택하세요.</p>
           </div>
+          <div class="file-preview" id="file-preview-name"></div>
+        </div>
 
-          <!-- Tab 3: Screenshot Image Upload -->
-          <div class="tab-content" id="tab-image">
-            <input type="file" id="image-input" accept="image/*" style="display:none;">
-            <div class="dropzone" id="image-dropzone">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              <p>노트/다이어그램 스크린샷 이미지 업로드</p>
-            </div>
-            <div class="image-preview-box" id="image-preview-box">
-              <img id="image-preview" src="" alt="Preview">
-            </div>
+        <!-- Tab 3: Screenshot Image Upload -->
+        <div class="tab-content" id="tab-image">
+          <input type="file" id="image-input" accept="image/*" style="display:none;">
+          <div class="dropzone" id="image-dropzone">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p>노트나 다이어그램 스크린샷 이미지(PNG, JPEG, WebP)를 드래그하거나 클릭하세요.</p>
           </div>
+          <div class="image-preview-box" id="image-preview-box">
+            <img id="image-preview" src="" alt="Preview">
+          </div>
+        </div>
 
-          <!-- Action Button -->
-          <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
-            <button class="btn btn-primary" id="btn-propose" style="width:100%;">
-              <span class="btn-text">지식 위치 분석 및 Diff 제안 생성</span>
-              <span class="spinner" style="display:none;"></span>
-            </button>
-          </div>
-        </section>
+        <!-- Action Button -->
+        <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+          <button class="nav-pill-btn primary" id="btn-propose" style="width:100%; justify-content:center; padding:0.65rem 1.25rem;">
+            <span class="btn-text">지식 위치 분석 및 Diff 제안 생성</span>
+            <span class="spinner" style="display:none;"></span>
+          </button>
+        </div>
 
         <!-- Proposal & Diff Review Card -->
-        <section class="card proposal-panel studio-card" id="proposal-section">
+        <section class="card proposal-panel" id="proposal-section" style="margin-top:1.25rem;">
           <div class="card-header">
             <div class="card-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              AI 병합 제안 & Diff 리뷰
+              AI 병합 제안 및 Unified Diff 리뷰
             </div>
           </div>
 
-          <!-- Metadata Grid -->
           <div class="meta-grid">
             <div class="meta-item">
-              <div class="meta-label">대상 파일 경로</div>
+              <div class="meta-label">대상 파일 상대 경로</div>
               <div class="meta-val" id="meta-target-path">-</div>
               <span class="badge" id="meta-file-badge">기존 파일 업데이트</span>
             </div>
@@ -258,42 +281,37 @@
             </div>
           </div>
 
-          <!-- AI Reason Box -->
           <div class="reason-box">
             <strong style="color:var(--accent);">AI 분석 근거: </strong>
             <span id="meta-reason">-</span>
           </div>
 
-          <!-- Unified Diff View -->
           <div class="diff-container">
             <div class="diff-header">
               <span id="diff-file-header">Unified Diff</span>
-              <span style="font-size:0.75rem; color:var(--text-muted);">difflib Git Diff</span>
+              <span style="font-size:0.75rem; color:var(--text-muted);">Python difflib Standard Git Diff</span>
             </div>
             <div class="diff-body" id="diff-content"></div>
           </div>
 
-          <!-- Accept & Commit Section -->
           <div class="commit-box">
             <input type="text" id="input-commit-msg" placeholder="커스텀 커밋 메시지 (비워두면 자동 생성)">
-            <button class="btn btn-success" id="btn-accept" style="width:100%;">
+            <button class="nav-pill-btn success" id="btn-accept" style="width:100%; justify-content:center; padding:0.65rem 1.25rem;">
               <span class="btn-text">변경 사항 승인 및 Git 커밋</span>
               <span class="spinner" style="display:none;"></span>
             </button>
           </div>
         </section>
       </div>
-    </aside>
+    </div>
   </div>
 
   <!-- Recent Diff Modal -->
   <div class="modal-overlay" id="recent-diff-modal">
-    <div class="modal-card">
+    <div class="modal-card macos-glass-modal">
       <div class="modal-header">
         <h3>최근 Git 커밋 변경 내역 (git diff HEAD~1 HEAD)</h3>
-        <button class="btn-icon" id="btn-close-modal">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="btn-icon" id="btn-close-modal">✕</button>
       </div>
       <div class="modal-body">
         <div class="diff-container">
@@ -303,38 +321,11 @@
     </div>
   </div>
 
-  <!-- Create Project Modal -->
-  <div class="modal-overlay" id="create-project-modal">
-    <div class="modal-card" style="max-width: 480px;">
-      <div class="modal-header">
-        <h3>새 프로젝트(작업공간) 생성</h3>
-        <button class="btn-icon" id="btn-close-project-modal">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>프로젝트 식별자 (영문자, 숫자, -, _ 만 허용)</label>
-          <input type="text" id="input-new-project-name" placeholder="예: kubernetes-study">
-        </div>
-        <div class="form-group" style="margin-top:1rem;">
-          <label>프로젝트 설명 (선택)</label>
-          <input type="text" id="input-new-project-desc" placeholder="예: 쿠버네티스 아키텍처 및 cgroups 리소스 격리 학습 노트">
-        </div>
-        <div style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.5rem;">
-          <button class="btn btn-secondary" id="btn-cancel-create-project">취소</button>
-          <button class="btn btn-primary" id="btn-submit-create-project">
-            <span class="btn-text">생성하기</span>
-            <span class="spinner" style="display:none;"></span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Import Knowledge Modal -->
   <div class="modal-overlay" id="import-modal">
-    <div class="modal-card" style="max-width: 600px;">
+    <div class="modal-card macos-glass-modal" style="max-width: 600px;">
       <div class="modal-header">
-        <h3>기존 지식 일괄 임포트 (<span id="import-target-project-label" style="color:var(--accent);">default</span>)</h3>
+        <h3>기존 지식 일괄 임포트</h3>
         <button class="btn-icon" id="btn-close-import-modal">✕</button>
       </div>
       <div class="modal-body">
@@ -354,7 +345,7 @@
             <input type="text" id="input-github-branch" placeholder="main 또는 master">
           </div>
           <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">
-            * 원격 레포를 클론하여 마크다운(.md) 파일과 디렉터리 트리를 프로젝트에 적재하고 초기 Git 커밋을 수행합니다.
+            * 원격 레포를 클론하여 마크다운(.md) 파일과 디렉터리 트리를 저장소에 적재하고 초기 Git 커밋을 수행합니다.
           </p>
         </div>
 
@@ -364,7 +355,7 @@
             <label>로컬 마크다운 디렉터리 경로</label>
             <div style="display:flex; gap:0.5rem; align-items:center;">
               <input type="text" id="input-local-path" placeholder="/Users/username/ObsidianVault" style="flex:1;">
-              <button type="button" class="btn btn-secondary" id="btn-open-dir-browser" style="white-space:nowrap;">
+              <button type="button" class="nav-pill-btn" id="btn-open-dir-browser" style="white-space:nowrap;">
                 📂 경로 찾기
               </button>
             </div>
@@ -373,12 +364,12 @@
             </p>
           </div>
 
-          <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-primary); border: 1px dashed var(--border-color); border-radius: 8px;">
+          <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); border-radius: 10px;">
             <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.5rem;">
               또는 내 컴퓨터 파일 탐색기(Finder)에서 폴더를 직접 선택하여 업로드할 수 있습니다:
             </p>
             <input type="file" id="browser-folder-picker" webkitdirectory directory multiple style="display:none;">
-            <button type="button" class="btn btn-sm btn-secondary" id="btn-pick-folder-finder">
+            <button type="button" class="nav-pill-btn" id="btn-pick-folder-finder">
               📁 Finder에서 폴더 직접 선택
             </button>
             <div id="finder-folder-label" style="font-size:0.8rem; color:var(--success); margin-top:0.4rem;"></div>
@@ -386,8 +377,8 @@
         </div>
 
         <div style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.5rem;">
-          <button class="btn btn-secondary" id="btn-cancel-import">취소</button>
-          <button class="btn btn-primary" id="btn-submit-import">
+          <button class="nav-pill-btn" id="btn-cancel-import">취소</button>
+          <button class="nav-pill-btn primary" id="btn-submit-import">
             <span class="btn-text">임포트 시작</span>
             <span class="spinner" style="display:none;"></span>
           </button>
@@ -398,7 +389,7 @@
 
   <!-- Directory Explorer Modal -->
   <div class="modal-overlay" id="dir-browser-modal" style="z-index: 1100;">
-    <div class="modal-card" style="max-width: 650px;">
+    <div class="modal-card macos-glass-modal" style="max-width: 650px;">
       <div class="modal-header">
         <h3>📂 로컬 디렉터리 탐색기</h3>
         <button class="btn-icon" id="btn-close-dir-browser">✕</button>
@@ -409,10 +400,10 @@
           <div id="dir-browser-current-path" style="font-family:var(--font-mono); font-size:0.85rem; color:var(--accent); word-break:break-all; margin-top:0.25rem;">/</div>
         </div>
         <div style="margin:0.75rem 0; display:flex; justify-content:space-between; align-items:center;">
-          <button class="btn btn-sm btn-secondary" id="btn-dir-go-up">
+          <button class="nav-pill-btn" id="btn-dir-go-up">
             ⬆ 상위 폴더로 이동
           </button>
-          <button class="btn btn-sm btn-success" id="btn-select-current-dir">
+          <button class="nav-pill-btn success" id="btn-select-current-dir">
             ✓ 현재 폴더 경로 선택
           </button>
         </div>
@@ -423,9 +414,119 @@
     </div>
   </div>
 
+  <!-- AI Settings Modal (.env integration) -->
+  <div class="modal-overlay" id="settings-modal" style="z-index: 1050;">
+    <div class="modal-card macos-glass-modal" style="max-width: 580px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:1.15rem;">⚙️</span>
+          <h3>AI 모델 및 환경 설정 (.env)</h3>
+        </div>
+        <button class="btn-icon" id="btn-close-settings-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem; line-height:1.45;">
+          여기서 API 키를 입력하고 저장하면 로컬 <code>.env</code> 파일에 안전하게 기록되며, 즉시 지능형 지식 분석 엔진에 적용됩니다.
+        </p>
+
+        <!-- Provider Selection Tabs -->
+        <div class="tab-group" style="margin-bottom:1.25rem;">
+          <button class="tab-btn active" data-settings-provider="google">Google Gemini</button>
+          <button class="tab-btn" data-settings-provider="openai">OpenAI</button>
+          <button class="tab-btn" data-settings-provider="ollama">Ollama (로컬 무료)</button>
+          <button class="tab-btn" data-settings-provider="custom">사용자 정의</button>
+        </div>
+
+        <!-- Google Gemini Settings Tab -->
+        <div class="settings-provider-pane" id="settings-pane-google">
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <label style="margin:0; font-weight:600;">Gemini API Key</label>
+              <span id="gemini-key-status" class="key-status-badge">확인 중...</span>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <input type="password" id="input-gemini-key" placeholder="AIzaSy... (새 키 입력 시 덮어쓰기)" style="flex:1;">
+              <button type="button" class="nav-pill-btn" id="btn-toggle-gemini-key-vis" title="키 표시/숨김">👁</button>
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">
+              * <a href="https://aistudio.google.com/" target="_blank" style="color:var(--accent); text-decoration:none;">Google AI Studio</a>에서 발급받은 키를 입력하세요 (무료 티어 1,500회/일 제공).
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-top:1rem;">
+            <label style="font-weight:600;">Gemini 모델</label>
+            <select id="select-gemini-model" class="custom-select">
+              <option value="gemini-3.8-flash">gemini-3.8-flash (추천 ⭐ 최신 고속 플래그십)</option>
+              <option value="gemini-3.7-flash">gemini-3.7-flash (추론 및 코딩 특화)</option>
+              <option value="gemini-3.5-flash">gemini-3.5-flash (안정적 경량 모델)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- OpenAI Settings Tab -->
+        <div class="settings-provider-pane" id="settings-pane-openai" style="display:none;">
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <label style="margin:0; font-weight:600;">OpenAI API Key</label>
+              <span id="openai-key-status" class="key-status-badge">미설정</span>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <input type="password" id="input-openai-key" placeholder="sk-... (새 키 입력 시 덮어쓰기)" style="flex:1;">
+              <button type="button" class="nav-pill-btn" id="btn-toggle-openai-key-vis" title="키 표시/숨김">👁</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:1rem;">
+            <label style="font-weight:600;">OpenAI 모델</label>
+            <input type="text" id="input-openai-model" value="gpt-4o-mini" placeholder="gpt-4o-mini 또는 gpt-4o">
+          </div>
+        </div>
+
+        <!-- Ollama Settings Tab -->
+        <div class="settings-provider-pane" id="settings-pane-ollama" style="display:none;">
+          <div class="form-group">
+            <label style="font-weight:600;">Ollama Base URL</label>
+            <input type="text" id="input-ollama-url" value="http://localhost:11434/v1" placeholder="http://localhost:11434/v1">
+          </div>
+          <div class="form-group" style="margin-top:1rem;">
+            <label style="font-weight:600;">Ollama 모델</label>
+            <input type="text" id="input-ollama-model" value="llama3.2" placeholder="llama3.2 또는 mistral 등">
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">
+            * 맥북 로컬에 Ollama가 실행 중이어야 합니다 (완전 무료/오프라인).
+          </p>
+        </div>
+
+        <!-- Custom OpenAI-compatible Settings Tab -->
+        <div class="settings-provider-pane" id="settings-pane-custom" style="display:none;">
+          <div class="form-group">
+            <label style="font-weight:600;">API Base URL</label>
+            <input type="text" id="input-custom-url" placeholder="https://openrouter.ai/api/v1">
+          </div>
+          <div class="form-group" style="margin-top:0.75rem;">
+            <label style="font-weight:600;">API Key</label>
+            <input type="password" id="input-custom-key" placeholder="Bearer Token / API Key">
+          </div>
+          <div class="form-group" style="margin-top:0.75rem;">
+            <label style="font-weight:600;">모델 명</label>
+            <input type="text" id="input-custom-model" placeholder="deepseek/deepseek-chat 등">
+          </div>
+        </div>
+
+        <!-- Save Actions -->
+        <div style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="nav-pill-btn" id="btn-cancel-settings">닫기</button>
+          <button type="button" class="nav-pill-btn success" id="btn-save-settings">
+            <span class="btn-text">💾 .env에 저장 및 적용</span>
+            <span class="spinner" style="display:none;"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2.5"></script>
 </body>
 </html>

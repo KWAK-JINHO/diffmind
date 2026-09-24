@@ -29,12 +29,15 @@ class Settings(BaseSettings):
     HOST: str = Field(default="127.0.0.1", description="서버 바인드 호스트")
     PORT: int = Field(default=8000, description="서버 바인드 포트")
 
-    # LLM Settings
-    LLM_PROVIDER: str = Field(default="google", description="사용할 LLM 제공자 ('google' 또는 'openai')")
+    # LLM Settings (Extensible: Google Gemini, OpenAI, Ollama, Custom OpenAI-compatible)
+    LLM_PROVIDER: str = Field(default="google", description="사용할 LLM 제공자 ('google', 'openai', 'ollama', 'custom')")
     GEMINI_API_KEY: Optional[str] = Field(default=None, description="Google GenAI API Key")
-    GEMINI_MODEL: str = Field(default="gemini-2.5-flash", description="Gemini 모델 명")
+    GEMINI_MODEL: str = Field(default="gemini-3.8-flash", description="Gemini 모델 명 (gemini-3.8-flash, gemini-3.7-flash, gemini-3.5-flash)")
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API Key")
-    OPENAI_MODEL: str = Field(default="gpt-4o", description="OpenAI 모델 명")
+    OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="OpenAI 모델 명")
+    OPENAI_BASE_URL: Optional[str] = Field(default=None, description="OpenAI 호환 API 베이스 URL (OpenRouter, vLLM 등)")
+    OLLAMA_BASE_URL: str = Field(default="http://localhost:11434/v1", description="Ollama API 베이스 URL")
+    OLLAMA_MODEL: str = Field(default="llama3.2", description="Ollama 로컬 모델 명")
 
     # Git Settings
     GIT_AUTHOR_NAME: str = Field(default="DiffMind Bot", description="Git 커밋 작성자 이름")
@@ -52,6 +55,53 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def update_env_settings(updates: dict[str, str], env_path: Optional[Path] = None) -> None:
+    """
+    Safely and atomically updates specific keys in the .env file,
+    preserving existing structure, comments, and other variables.
+    Clears the get_settings cache so changes are immediately active.
+    """
+    import tempfile
+    import os
+
+    target_path = (env_path or Path(".env")).resolve()
+    lines: list[str] = []
+    if target_path.is_file():
+        lines = target_path.read_text(encoding="utf-8").splitlines()
+
+    updated_keys = set()
+    new_lines: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped or "=" not in stripped:
+            new_lines.append(line)
+            continue
+        key, _, _ = line.partition("=")
+        key_clean = key.strip()
+        if key_clean in updates:
+            new_lines.append(f"{key_clean}={updates[key_clean]}")
+            updated_keys.add(key_clean)
+        else:
+            new_lines.append(line)
+
+    for key, val in updates.items():
+        if key not in updated_keys:
+            new_lines.append(f"{key}={val}")
+
+    content = "\n".join(new_lines) + "\n"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(target_path.parent), delete=False) as tf:
+        tf.write(content)
+        tf.flush()
+        os.fsync(tf.fileno())
+        temp_name = tf.name
+
+    os.replace(temp_name, target_path)
+    get_settings.cache_clear()
 
 
 def validate_safe_path(target_rel_path: str | Path, base_dir: Path) -> Path:

@@ -42,7 +42,7 @@ def test_root_and_health(test_app: TestClient):
     assert res_root.status_code == 200
     assert "text/html" in res_root.headers.get("content-type", "")
     assert "DiffMind" in res_root.text
-    assert "지식 소스 (Sources)" in res_root.text
+    assert "Sources" in res_root.text
 
     # Verify JSON API metadata endpoint
     res_api = test_app.get("/api")

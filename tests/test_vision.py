@@ -72,3 +72,26 @@ async def test_vision_service_openai_flow():
     with patch("openai.OpenAI", return_value=mock_client):
         result = await service.extract_markdown_from_image(b"jpeg_data", "image/jpeg")
         assert "# OpenAI Extracted" in result
+
+
+@pytest.mark.asyncio
+async def test_vision_service_ollama_flow():
+    settings = Settings(
+        KB_PATH="./knowledge_base",
+        LLM_PROVIDER="ollama",
+        OLLAMA_BASE_URL="http://localhost:11434/v1",
+        OLLAMA_MODEL="llama3.2-vision"
+    )
+    service = VisionService(settings=settings)
+
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "# Ollama Vision Extracted"
+    mock_resp = MagicMock()
+    mock_resp.choices = [mock_choice]
+    mock_client.chat.completions.create.return_value = mock_resp
+
+    with patch("openai.OpenAI", return_value=mock_client) as mock_openai_cls:
+        result = await service.extract_markdown_from_image(b"png_data", "image/png")
+        assert "# Ollama Vision Extracted" in result
+        mock_openai_cls.assert_called_with(api_key="ollama", base_url="http://localhost:11434/v1")

@@ -39,23 +39,55 @@ class VisionService:
         if not image_bytes:
             raise ValueError("Empty image data provided.")
 
-        if not self.settings.GEMINI_API_KEY and not self.settings.OPENAI_API_KEY:
+        provider = self.settings.LLM_PROVIDER.lower()
+        has_gemini = bool(self.settings.GEMINI_API_KEY)
+        has_openai = bool(self.settings.OPENAI_API_KEY)
+        is_ollama = provider == "ollama"
+        is_custom = provider in ("custom", "openai_compatible")
+
+        if not has_gemini and not has_openai and not is_ollama and not is_custom:
             raise ValueError(
                 "Neither GEMINI_API_KEY nor OPENAI_API_KEY is configured in environment. "
                 "Please configure an API key in .env to use vision analysis."
             )
 
-        provider = self.settings.LLM_PROVIDER.lower()
-
         # Check provider availability and route accordingly
-        if provider == "google" and self.settings.GEMINI_API_KEY:
+        if provider == "google" and has_gemini:
             return await self._extract_with_gemini(image_bytes, mime_type)
-        elif provider == "openai" and self.settings.OPENAI_API_KEY:
-            return await self._extract_with_openai(image_bytes, mime_type)
-        elif self.settings.GEMINI_API_KEY:
+        elif is_ollama:
+            return await self._extract_with_openai(
+                image_bytes,
+                mime_type,
+                base_url=self.settings.OLLAMA_BASE_URL,
+                api_key="ollama",
+                model=self.settings.OLLAMA_MODEL,
+            )
+        elif is_custom:
+            return await self._extract_with_openai(
+                image_bytes,
+                mime_type,
+                base_url=self.settings.OPENAI_BASE_URL,
+                api_key=self.settings.OPENAI_API_KEY or "custom",
+                model=self.settings.OPENAI_MODEL,
+            )
+        elif provider == "openai" and has_openai:
+            return await self._extract_with_openai(
+                image_bytes,
+                mime_type,
+                base_url=self.settings.OPENAI_BASE_URL,
+                api_key=self.settings.OPENAI_API_KEY,
+                model=self.settings.OPENAI_MODEL,
+            )
+        elif has_gemini:
             return await self._extract_with_gemini(image_bytes, mime_type)
-        elif self.settings.OPENAI_API_KEY:
-            return await self._extract_with_openai(image_bytes, mime_type)
+        elif has_openai:
+            return await self._extract_with_openai(
+                image_bytes,
+                mime_type,
+                base_url=self.settings.OPENAI_BASE_URL,
+                api_key=self.settings.OPENAI_API_KEY,
+                model=self.settings.OPENAI_MODEL,
+            )
         else:
             raise ValueError(
                 "Neither GEMINI_API_KEY nor OPENAI_API_KEY is configured in environment. "
@@ -79,18 +111,26 @@ class VisionService:
         )
         return response.text or ""
 
-    async def _extract_with_openai(self, image_bytes: bytes, mime_type: str) -> str:
-        if not self.settings.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY is required for OpenAI vision service.")
+    async def _extract_with_openai(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> str:
+        effective_api_key = api_key or self.settings.OPENAI_API_KEY or "none"
+        effective_base_url = base_url or self.settings.OPENAI_BASE_URL
+        effective_model = model or self.settings.OPENAI_MODEL
 
         import openai
 
-        client = openai.OpenAI(api_key=self.settings.OPENAI_API_KEY)
+        client = openai.OpenAI(api_key=effective_api_key, base_url=effective_base_url)
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         data_url = f"data:{mime_type};base64,{b64_image}"
 
         response = client.chat.completions.create(
-            model=self.settings.OPENAI_MODEL,
+            model=effective_model,
             messages=[
                 {
                     "role": "user",

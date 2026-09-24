@@ -155,20 +155,47 @@ class SynthesisService:
         provider = self.settings.LLM_PROVIDER.lower()
         has_gemini = bool(self.settings.GEMINI_API_KEY)
         has_openai = bool(self.settings.OPENAI_API_KEY)
+        is_ollama = provider == "ollama"
+        is_custom = provider in ("custom", "openai_compatible")
 
-        if not has_gemini and not has_openai:
+        if not has_gemini and not has_openai and not is_ollama and not is_custom:
             logger.info("No LLM API key detected; employing heuristic decision engine.")
             return self._heuristic_decision(content, toc_map)
 
         toc_json = json.dumps(toc_map, ensure_ascii=False, indent=2)
         prompt = SYNTHESIS_SYSTEM_PROMPT.format(toc_json=toc_json, content=content)
 
-        if (provider == "google" and has_gemini) or (not has_openai and has_gemini):
-            return await self._call_gemini_structured(prompt)
-        elif (provider == "openai" and has_openai) or has_openai:
-            return await self._call_openai_structured(prompt)
-        else:
-            return self._heuristic_decision(content, toc_map)
+        try:
+            if (provider == "google" and has_gemini) or (not has_openai and has_gemini and not is_ollama and not is_custom):
+                return await self._call_gemini_structured(prompt)
+            elif is_ollama:
+                return await self._call_openai_structured(
+                    prompt,
+                    base_url=self.settings.OLLAMA_BASE_URL,
+                    api_key="ollama",
+                    model=self.settings.OLLAMA_MODEL,
+                )
+            elif is_custom:
+                return await self._call_openai_structured(
+                    prompt,
+                    base_url=self.settings.OPENAI_BASE_URL,
+                    api_key=self.settings.OPENAI_API_KEY or "custom",
+                    model=self.settings.OPENAI_MODEL,
+                )
+            elif (provider == "openai" and has_openai) or has_openai:
+                return await self._call_openai_structured(
+                    prompt,
+                    base_url=self.settings.OPENAI_BASE_URL,
+                    api_key=self.settings.OPENAI_API_KEY,
+                    model=self.settings.OPENAI_MODEL,
+                )
+            else:
+                return self._heuristic_decision(content, toc_map)
+        except Exception as e:
+            logger.warning("LLM API call failed (%s). Falling back gracefully to heuristic decision engine.", e)
+            decision = self._heuristic_decision(content, toc_map)
+            decision.reason = f"[LLM 연결 대기/휴리스틱 매칭 적용: {e.__class__.__name__}] {decision.reason}"
+            return decision
 
     async def _call_gemini_structured(self, prompt: str) -> LLMDecision:
         from google import genai
@@ -186,20 +213,47 @@ class SynthesisService:
         )
         return LLMDecision.model_validate_json(response.text)
 
-    async def _call_openai_structured(self, prompt: str) -> LLMDecision:
+    async def _call_openai_structured(
+        self,
+        prompt: str,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> LLMDecision:
         import openai
 
-        client = openai.OpenAI(api_key=self.settings.OPENAI_API_KEY)
-        response = client.beta.chat.completions.parse(
-            model=self.settings.OPENAI_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format=LLMDecision,
+        effective_base_url = base_url or self.settings.OPENAI_BASE_URL
+        effective_api_key = api_key or self.settings.OPENAI_API_KEY or "none"
+        effective_model = model or self.settings.OPENAI_MODEL
+
+        client = openai.OpenAI(
+            api_key=effective_api_key,
+            base_url=effective_base_url,
+        )
+        try:
+            response = client.beta.chat.completions.parse(
+                model=effective_model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format=LLMDecision,
+                temperature=0.1,
+            )
+            parsed = response.choices[0].message.parsed
+            if parsed:
+                return parsed
+        except Exception as e:
+            logger.warning("Structured parse failed, attempting JSON completion fallback: %s", e)
+
+        response = client.chat.completions.create(
+            model=effective_model,
+            messages=[
+                {"role": "system", "content": "You are a JSON assistant. Output valid JSON adhering to LLMDecision schema."},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
             temperature=0.1,
         )
-        parsed = response.choices[0].message.parsed
-        if not parsed:
-            raise ValueError("Failed to parse structured output from OpenAI.")
-        return parsed
+        content_str = response.choices[0].message.content or "{}"
+        return LLMDecision.model_validate_json(content_str)
 
     def _heuristic_decision(self, content: str, toc_map: dict[str, list[str]]) -> LLMDecision:
         """
@@ -227,21 +281,22 @@ class SynthesisService:
         STOPWORDS = {
             "systems", "system", "the", "and", "in", "of", "to", "a", "is", "for",
             "on", "with", "as", "by", "an", "at", "or", "from", "overview", "guide",
-            "notes", "md", "details"
+            "notes", "md", "details", "core"
         }
-        content_words = {
-            w for w in re.findall(r"\w+", content.lower())
-            if w not in STOPWORDS and len(w) > 2
-        }
+
+        def tokenize(text: str) -> set[str]:
+            return {
+                w for w in re.findall(r"[a-zA-Z0-9\uac00-\ud7a3]+", text.lower())
+                if w not in STOPWORDS and len(w) > 2 and not w.isdigit()
+            }
+
+        content_words = tokenize(content)
         best_file: Optional[str] = None
         best_heading: Optional[str] = None
         best_score = 0
 
         for file_path, headings in toc_map.items():
-            file_words = {
-                w for w in re.findall(r"\w+", file_path.lower())
-                if w not in STOPWORDS and len(w) > 2
-            }
+            file_words = tokenize(file_path)
             overlap = len(content_words & file_words) * 3
             if overlap > best_score:
                 best_score = overlap
@@ -249,25 +304,21 @@ class SynthesisService:
                 best_heading = headings[0] if headings else "# " + Path(file_path).stem
 
             for h in headings:
-                h_words = {
-                    w for w in re.findall(r"\w+", h.lower())
-                    if w not in STOPWORDS and len(w) > 2
-                }
+                h_words = tokenize(h)
                 h_overlap = len(content_words & h_words) * 2
                 if h_overlap > best_score:
                     best_score = h_overlap
                     best_file = file_path
                     best_heading = h
 
-        # Require a meaningful match score of at least 4 (e.g. 2 heading words or 1 strong file word + 1 heading word)
-        if best_file and best_score >= 4:
+        if best_file and best_score >= 3:
             return LLMDecision(
                 is_new_file=False,
                 target_file_path=best_file,
                 target_heading=best_heading or "## Details",
                 original_snippet="",
                 proposed_snippet=content,
-                reason=f"Found high topical relevance with existing file '{best_file}' under heading '{best_heading}'."
+                reason=f"기존 지식 베이스 문서 '{best_file}' ({best_heading})와의 높은 주제 연관성을 발견하여 해당 위치에 병합을 제안합니다."
             )
 
         # No sufficient match found -> propose new file

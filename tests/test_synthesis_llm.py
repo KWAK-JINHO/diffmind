@@ -75,3 +75,39 @@ async def test_synthesis_openai_structured():
         assert decision.is_new_file is True
         assert decision.target_file_path == "security/selinux.md"
         assert "# SELinux Policies" in decision.target_heading
+
+
+@pytest.mark.asyncio
+async def test_synthesis_ollama_structured():
+    settings = Settings(
+        KB_PATH="./knowledge_base",
+        LLM_PROVIDER="ollama",
+        OLLAMA_BASE_URL="http://localhost:11434/v1",
+        OLLAMA_MODEL="llama3.2"
+    )
+    service = SynthesisService(settings=settings)
+
+    expected_decision = LLMDecision(
+        is_new_file=False,
+        target_file_path="docker/network.md",
+        target_heading="## Overlay Networks",
+        original_snippet="",
+        proposed_snippet="Overlay network config.",
+        reason="Matches network topic."
+    )
+
+    mock_client = MagicMock()
+    mock_parsed_choice = MagicMock()
+    mock_parsed_choice.message.parsed = expected_decision
+    mock_resp = MagicMock()
+    mock_resp.choices = [mock_parsed_choice]
+    mock_client.beta.chat.completions.parse.return_value = mock_resp
+
+    with patch("openai.OpenAI", return_value=mock_client) as mock_openai_cls:
+        decision = await service.decide_patch_with_llm(
+            content="Overlay network config.",
+            toc_map={"docker/network.md": ["# Docker", "## Overlay Networks"]}
+        )
+        assert decision.target_file_path == "docker/network.md"
+        # Verify client initialized with Ollama URL
+        mock_openai_cls.assert_called_with(api_key="ollama", base_url="http://localhost:11434/v1")

@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import SecurityError, get_settings
-from app.routers import knowledge_router, project_router
+from app.routers import knowledge_router, project_router, settings_router
 from app.versioning.git_service import GitExecutionError, GitService
 
 # Configure logging
@@ -59,6 +59,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def dev_cache_control_middleware(request: Request, call_next):
+    """Prevents aggressive browser caching of HTML, CSS, and JS during local development."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 
 # Global Exception Handlers
@@ -112,6 +123,7 @@ if STATIC_DIR.is_dir():
 # Register API Routers
 app.include_router(knowledge_router)
 app.include_router(project_router)
+app.include_router(settings_router)
 
 
 @app.get("/", tags=["Frontend"])
