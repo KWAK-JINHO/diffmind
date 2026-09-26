@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 from app.config import Settings, get_settings, validate_safe_path
+from app.llm.base import LLMRequest
+from app.llm.factory import LLMConfigurationError, LLMFactory
 from app.schemas.patch import PatchProposal, LLMDecision
 from app.synthesis.scanner import scan_knowledge_base, get_file_content
 
@@ -152,13 +154,9 @@ class SynthesisService:
         Invokes LLM to analyze content against knowledge base TOC and return structured decision.
         Falls back to intelligent heuristic if no API key is provided.
         """
-        provider = self.settings.LLM_PROVIDER.lower()
-        has_gemini = bool(self.settings.GEMINI_API_KEY)
-        has_openai = bool(self.settings.OPENAI_API_KEY)
-        is_ollama = provider == "ollama"
-        is_custom = provider in ("custom", "openai_compatible")
-
-        if not has_gemini and not has_openai and not is_ollama and not is_custom:
+        try:
+            client = LLMFactory.create(self.settings)
+        except LLMConfigurationError:
             logger.info("No LLM API key detected; employing heuristic decision engine.")
             return self._heuristic_decision(content, toc_map)
 
@@ -166,31 +164,18 @@ class SynthesisService:
         prompt = SYNTHESIS_SYSTEM_PROMPT.format(toc_json=toc_json, content=content)
 
         try:
-            if (provider == "google" and has_gemini) or (not has_openai and has_gemini and not is_ollama and not is_custom):
-                return await self._call_gemini_structured(prompt)
-            elif is_ollama:
-                return await self._call_openai_structured(
-                    prompt,
-                    base_url=self.settings.OLLAMA_BASE_URL,
-                    api_key="ollama",
-                    model=self.settings.OLLAMA_MODEL,
+            response = await client.generate_response(
+                LLMRequest(
+                    prompt=prompt,
+                    response_model=LLMDecision,
+                    temperature=0.1,
                 )
-            elif is_custom:
-                return await self._call_openai_structured(
-                    prompt,
-                    base_url=self.settings.OPENAI_BASE_URL,
-                    api_key=self.settings.OPENAI_API_KEY or "custom",
-                    model=self.settings.OPENAI_MODEL,
-                )
-            elif (provider == "openai" and has_openai) or has_openai:
-                return await self._call_openai_structured(
-                    prompt,
-                    base_url=self.settings.OPENAI_BASE_URL,
-                    api_key=self.settings.OPENAI_API_KEY,
-                    model=self.settings.OPENAI_MODEL,
-                )
-            else:
-                return self._heuristic_decision(content, toc_map)
+            )
+            decision = LLMDecision.model_validate_json(response.text)
+            decision.engine = "ai"
+            decision.model_used = response.model
+            decision.is_fallback = False
+            return decision
         except Exception as e:
             err_msg = str(e)
             logger.warning("LLM API call failed (%s). Falling back gracefully to heuristic decision engine.", e)
@@ -205,105 +190,6 @@ class SynthesisService:
                 reason_prefix = f"[LLM 호출 예외({e.__class__.__name__})로 인해 오프라인 휴리스틱 엔진이 자동 작동했습니다]\n"
             decision.reason = f"{reason_prefix}{decision.reason}"
             return decision
-
-    async def _call_gemini_structured(self, prompt: str) -> LLMDecision:
-        from google import genai
-        from google.genai import types
-
-        client = genai.Client(api_key=self.settings.GEMINI_API_KEY)
-        target_model = self.settings.GEMINI_MODEL
-
-        try:
-            response = client.models.generate_content(
-                model=target_model,
-                contents=[prompt],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=LLMDecision,
-                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                    temperature=0.1,
-                ),
-            )
-            decision = LLMDecision.model_validate_json(response.text)
-            decision.engine = "ai"
-            decision.model_used = target_model
-            decision.is_fallback = False
-            return decision
-        except Exception as e:
-            err_str = str(e)
-            if ("503" in err_str or "UNAVAILABLE" in err_str) and target_model != "gemini-3.5-flash":
-                logger.warning(
-                    "%s is experiencing high demand (503). Retrying automatically with gemini-3.5-flash...",
-                    target_model,
-                )
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-3.5-flash",
-                        contents=[prompt],
-                        config=types.GenerateContentConfig(
-                            response_mime_type="application/json",
-                            response_schema=LLMDecision,
-                            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                            temperature=0.1,
-                        ),
-                    )
-                    decision = LLMDecision.model_validate_json(response.text)
-                    decision.engine = "ai"
-                    decision.model_used = "gemini-3.5-flash (자동 대체)"
-                    decision.is_fallback = False
-                    return decision
-                except Exception as inner_e:
-                    logger.warning("Retry with gemini-3.5-flash failed: %s", inner_e)
-            raise
-
-    async def _call_openai_structured(
-        self,
-        prompt: str,
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-    ) -> LLMDecision:
-        import openai
-
-        effective_base_url = base_url or self.settings.OPENAI_BASE_URL
-        effective_api_key = api_key or self.settings.OPENAI_API_KEY or "none"
-        effective_model = model or self.settings.OPENAI_MODEL
-
-        client = openai.OpenAI(
-            api_key=effective_api_key,
-            base_url=effective_base_url,
-        )
-        try:
-            response = client.beta.chat.completions.parse(
-                model=effective_model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format=LLMDecision,
-                temperature=0.1,
-            )
-            parsed = response.choices[0].message.parsed
-            if parsed:
-                parsed.engine = "ai"
-                parsed.model_used = effective_model
-                parsed.is_fallback = False
-                return parsed
-        except Exception as e:
-            logger.warning("Structured parse failed, attempting JSON completion fallback: %s", e)
-
-        response = client.chat.completions.create(
-            model=effective_model,
-            messages=[
-                {"role": "system", "content": "You are a JSON assistant. Output valid JSON adhering to LLMDecision schema."},
-                {"role": "user", "content": prompt},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-        )
-        content_str = response.choices[0].message.content or "{}"
-        decision = LLMDecision.model_validate_json(content_str)
-        decision.engine = "ai"
-        decision.model_used = effective_model
-        decision.is_fallback = False
-        return decision
 
     def _heuristic_decision(self, content: str, toc_map: dict[str, list[str]]) -> LLMDecision:
         """
