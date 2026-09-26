@@ -4,7 +4,11 @@ import pytest
 
 from app.config import Settings
 from app.llm.base import LLMRequest
-from app.llm.factory import LLMFactory, UnsupportedLLMProviderError
+from app.llm.factory import (
+    LLMConfigurationError,
+    LLMFactory,
+    UnsupportedLLMProviderError,
+)
 from app.llm.gemini_client import GeminiClient
 from app.llm.openai_client import OpenAIClient
 from app.schemas.patch import LLMDecision
@@ -36,6 +40,50 @@ def test_factory_rejects_unknown_provider() -> None:
     settings = Settings(LLM_PROVIDER="unknown")
 
     with pytest.raises(UnsupportedLLMProviderError):
+        LLMFactory.create(settings)
+
+
+@pytest.mark.parametrize(
+    ("provider", "api_key", "base_url", "model", "provider_name"),
+    [
+        ("openai", "openai-test", "https://api.openai.test/v1", "gpt-test", None),
+        ("ollama", "ollama", "http://localhost:11434/v1", "llama-test", "ollama"),
+        ("custom", "custom-test", "https://custom.test/v1", "custom-model", "custom"),
+    ],
+)
+def test_factory_routes_openai_compatible_configuration(
+    provider: str,
+    api_key: str,
+    base_url: str,
+    model: str,
+    provider_name: str | None,
+) -> None:
+    settings = Settings(
+        LLM_PROVIDER=provider,
+        OPENAI_API_KEY=api_key if provider != "ollama" else None,
+        OPENAI_BASE_URL=base_url if provider != "ollama" else None,
+        OPENAI_MODEL=model if provider != "ollama" else "gpt-default",
+        OLLAMA_BASE_URL=base_url,
+        OLLAMA_MODEL=model,
+    )
+
+    with patch("app.llm.factory.OpenAIClient") as client_class:
+        LLMFactory.create(settings)
+
+    expected = {
+        "api_key": api_key,
+        "base_url": base_url,
+        "model": model,
+    }
+    if provider_name is not None:
+        expected["provider_name"] = provider_name
+    client_class.assert_called_once_with(**expected)
+
+
+def test_factory_requires_openai_key() -> None:
+    settings = Settings(LLM_PROVIDER="openai", OPENAI_API_KEY=None)
+
+    with pytest.raises(LLMConfigurationError, match="OPENAI_API_KEY"):
         LLMFactory.create(settings)
 
 
